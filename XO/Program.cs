@@ -8,11 +8,12 @@ namespace XO
 {
     class Program
     {
-       static char win = '-';
-       static string PlayerName1, PlayerName2;
-       static char[] cells = new char[]{ '-', '-', '-', '-', '-', '-', '-', '-', '-' };
+        const char _emptySymbol = '-';
+        const int _lineSize = 3;
+        static Player[] _players = new Player[2];
+        static char[] _cells = Enumerable.Repeat(_emptySymbol, _lineSize ^ 2).ToArray();
 
-        static void show_cells()
+        static void ShowCells()
         {
             Console.Clear();
 
@@ -22,56 +23,72 @@ namespace XO
             Console.WriteLine("-7-|-8-|-9-");
 
             Console.WriteLine("Текущая ситуация (---пустой):");
-            Console.WriteLine($"-{cells[0]}-|-{cells[1]}-|-{cells[2]}-");
-            Console.WriteLine($"-{cells[3]}-|-{cells[4]}-|-{cells[5]}-");
-            Console.WriteLine($"-{cells[6]}-|-{cells[7]}-|-{cells[8]}-");        
+            Console.WriteLine($"-{_cells[0]}-|-{_cells[1]}-|-{_cells[2]}-");
+            Console.WriteLine($"-{_cells[3]}-|-{_cells[4]}-|-{_cells[5]}-");
+            Console.WriteLine($"-{_cells[6]}-|-{_cells[7]}-|-{_cells[8]}-");        
         }
-        static void make_move(int num)
+
+        static bool IsCellInRange(int cellIndex)
+        {
+            return cellIndex <= _cells.Length && cellIndex > 0;
+        }
+
+        static bool IsCellOwned(int cellIndex)
+        {
+            return _players.Any(p => p.PlayerSymbol == _cells[cellIndex - 1]);
+        }
+
+        static void MakeMove(Player player)
         {
             string raw_cell;
             int cell;
-            if (num == 1) Console.Write(PlayerName1);
-            else Console.Write(PlayerName2);
-            do
-            {
-                Console.Write(",введите номер ячейки,сделайте свой ход:");
+            Console.Write(player.PlayerName);
+            Console.Write(",введите номер ячейки,сделайте свой ход:");
 
-                raw_cell = Console.ReadLine();
-            }
-            while (!Int32.TryParse(raw_cell, out cell));
-            while (cell > 9 || cell < 1 || cells[cell - 1] == 'O' || cells[cell - 1] == 'X')
+            raw_cell = Console.ReadLine();
+            while (!int.TryParse(raw_cell, out cell)
+                || !IsCellInRange(cell)
+                || IsCellOwned(cell))
             {
-                do
-                {
-                    Console.Write("Введите номер правильного ( 1-9 ) или пустой ( --- ) клетки , чтобы сделать ход:");
-                    raw_cell = Console.ReadLine();
-                }
-                while (!Int32.TryParse(raw_cell, out cell));
+                Console.Write("Введите номер правильного ( 1-9 ) или пустой ( --- ) клетки , чтобы сделать ход:");
+                raw_cell = Console.ReadLine();
                 Console.WriteLine();
             }
-            if (num == 1) cells[cell - 1] = 'X';
-            else cells[cell - 1] = 'O';
-            
+            _cells[cell - 1] = player.PlayerSymbol;            
         }
-        static char check()
+
+        static char GetCompletedLineSymbol()
         {
             for (int i = 0; i < 3; i++)
-                if (cells[i * 3] == cells[i * 3 + 1] && cells[i * 3 + 1] == cells[i * 3 + 2])
-                    return cells[i];
-                else if (cells[i] == cells[i + 3] && cells[i + 3] == cells[i + 6])
-                    return cells[i];
-                else if ((cells[2] == cells[4] && cells[4] == cells[6]) || (cells[0] == cells[4] && cells[4] == cells[8]))
-                    return cells[i];
+                if (IsHorizontalLineCompleted(i) || IsVerticalLineCompleted(i))
+                    return _cells[i];
+
+            int centerPointIndex = _cells.Length / 2;
+            if (IsDiagonalLineCompleted())
+                return _cells[centerPointIndex];
+
             return '-';
         }
 
-        static void result()
+        static bool IsDiagonalLineCompleted()
         {
-            if (win == 'X')
-                Console.WriteLine($"{PlayerName1} вы  выиграли поздравляем {PlayerName2} а вы проиграли...");
-            else if (win == 'O')
-                Console.WriteLine($"{PlayerName2} вы  выиграли поздравляем {PlayerName1} а вы проиграли...");
+            return (_cells[2] == _cells[4] && _cells[4] == _cells[6]) || (_cells[0] == _cells[4] && _cells[4] == _cells[8]);
+        }
 
+        static bool IsVerticalLineCompleted(int rowIndex)
+        {
+            return _cells[rowIndex] == _cells[rowIndex + 3] && _cells[rowIndex + 3] == _cells[rowIndex + 6];
+        }
+
+        static bool IsHorizontalLineCompleted(int columnIndex)
+        {
+            return _cells[columnIndex * 3] == _cells[columnIndex * 3 + 1] && _cells[columnIndex * 3 + 1] == _cells[columnIndex * 3 + 2];
+        }
+
+        static void PrintResult(char winningSymbol)
+        {
+            var winner = _players.First(p => p.PlayerSymbol == winningSymbol);
+            Console.WriteLine($"{winner.PlayerName} вы  выиграли поздравляем, {string.Join(", ", _players.Where(p => p != winner))} -  а вы проиграли...");
         }
 
         static void Main(string[] args)
@@ -79,32 +96,36 @@ namespace XO
             do
             {
                 Console.Write("Введите имя первого игрока : ");
-                PlayerName1 = Console.ReadLine();
+                var firstPlayerName = Console.ReadLine();
+                _players[0] = new Player(firstPlayerName, 'X');
 
                 Console.Write("Введите имя второго игрока: ");
-                PlayerName2 = Console.ReadLine();
+                var secondPlayerName = Console.ReadLine();
+                _players[1] = new Player(secondPlayerName, 'O');
                 Console.WriteLine();
-            } while (PlayerName1 == PlayerName2);
+            } while (_players[0].PlayerName == _players[1].PlayerName);
 
-            show_cells();
+            ShowCells();
 
-            for (int move = 1; move <= 9; move++)
+            int minMovesToCompleteLine = (_lineSize - 1) * _players.Length;
+            for (int move = 0; move < _cells.Length; move++)
             {
-                if (move % 2 != 0) make_move(1);
-                else make_move(2);
+                int currentPlayerIndex = move % _players.Length;
+                MakeMove(_players[currentPlayerIndex]);
 
-                show_cells();
+                ShowCells();
 
-                if (move >= 5)
+                if (move >= minMovesToCompleteLine)
                 {
-                    win = check();
-                    if (win != '-')
-                        break;
+                    var completedLineSymbol = GetCompletedLineSymbol();
+                    if (completedLineSymbol != _emptySymbol)
+                    {
+                        PrintResult(completedLineSymbol);
+                        return;
+                    }
                 }
 
             }
-
-            result();
         }
     }
 }
